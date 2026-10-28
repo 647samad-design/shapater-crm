@@ -20,6 +20,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://shapater_app:shapater_app_pw@db:5432/shapater
       MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/shapater
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      # Encrypts stored API keys. Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-}
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports: ["8000:8000"]
     depends_on:

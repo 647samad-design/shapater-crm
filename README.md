@@ -24,7 +24,12 @@ cd backend && pip install -r requirements-dev.txt && pytest -q
 - **PostgreSQL Row-Level Security** (DB-enforced tenant isolation, fail-closed) + Alembic migrations
 - CSV import (clients, properties) and WhatsApp message parser (`POST /api/v1/ai/parse-message`)
 
+- **Integrations & keys** (owner-only): add/edit/delete/copy Stripe, WhatsApp, AI keys. Encrypted at rest (Fernet, rotation-ready), masked in lists, reveal/copy audited, RLS-isolated per agency
 - **Dashboard (Next.js)**: overview, matches with the Fit Gauge, properties, clients + requirements, drag-and-drop pipeline, paste-a-message, CSV import
+
+## Security notes
+- Set `SECRET_KEY` and `ENCRYPTION_KEYS` before production (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`). Losing `ENCRYPTION_KEYS` makes stored keys unreadable, so back it up in a secrets manager.
+- Never commit real keys. `.env` is git-ignored.
 
 ## Roadmap
 1. Urdu/Arabic i18n (RTL), live FX rates
