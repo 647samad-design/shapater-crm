@@ -21,7 +21,7 @@ async def _db():
         from sqlalchemy.ext.asyncio import create_async_engine
         admin = create_async_engine(os.environ["TEST_ADMIN_DATABASE_URL"])
         async with admin.begin() as conn:
-            await conn.execute(text("TRUNCATE audit_logs, activities, leads, matches, requirements, clients, "
+            await conn.execute(text("TRUNCATE audit_logs, api_keys, activities, leads, matches, requirements, clients, "
                                     "properties, users, agencies CASCADE"))
         await admin.dispose()
     yield

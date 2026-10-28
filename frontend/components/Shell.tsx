@@ -12,6 +12,7 @@ const NAV = [
   { href: "/pipeline", label: "Pipeline" },
   { href: "/paste", label: "Paste a message" },
   { href: "/import", label: "Import data" },
+  { href: "/settings/keys", label: "Integrations & keys", ownerOnly: true },
 ];
 
 export default function Shell({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
@@ -36,7 +37,7 @@ export default function Shell({ title, actions, children }: { title: string; act
       <aside className={`${open ? "block" : "hidden"} w-full shrink-0 border-r border-line bg-white lg:block lg:w-60`}>
         <div className="hidden px-5 py-5 text-lg font-semibold text-pine lg:block">Shapater</div>
         <nav className="px-3 pb-4">
-          {NAV.map((n) => {
+          {NAV.filter((n) => !(n as { ownerOnly?: boolean }).ownerOnly || me?.role === "owner").map((n) => {
             const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
             return (
               <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined}

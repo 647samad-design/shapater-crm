@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/shapater"
     migration_database_url: str | None = None  # owner/admin URL used only by Alembic
     auto_create_tables: bool = False  # dev/test only; prod uses Alembic
+    # Fernet keys, comma separated. First encrypts; all can decrypt (key rotation). Generate with:
+    # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    encryption_keys: str | None = None
     secret_key: str = "change-me"
     access_token_minutes: int = 60 * 12
     match_threshold: int = 70

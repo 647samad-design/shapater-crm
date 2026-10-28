@@ -143,3 +143,15 @@ class AuditLog(Base, TenantMixin):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     changes: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ApiKey(Base, TenantMixin, TimestampMixin):
+    """Third-party credentials (Stripe, WhatsApp, AI...) stored ENCRYPTED. Never log or return plaintext in lists."""
+    __tablename__ = "api_keys"
+    __table_args__ = (UniqueConstraint("agency_id", "provider", "label", name="uq_apikey_label"),)
+    provider: Mapped[str] = mapped_column(String(40), index=True)
+    label: Mapped[str] = mapped_column(String(100))
+    encrypted_value: Mapped[str] = mapped_column(Text)
+    last4: Mapped[str] = mapped_column(String(8))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
