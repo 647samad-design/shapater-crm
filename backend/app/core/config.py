@@ -6,6 +6,8 @@ class Settings(BaseSettings):
 
     app_name: str = "Shapater CRM"
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/shapater"
+    migration_database_url: str | None = None  # owner/admin URL used only by Alembic
+    auto_create_tables: bool = False  # dev/test only; prod uses Alembic
     secret_key: str = "change-me"
     access_token_minutes: int = 60 * 12
     match_threshold: int = 70

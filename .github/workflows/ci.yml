@@ -4,9 +4,27 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     defaults: {run: {working-directory: backend}}
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: shapater}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: pip install -r requirements-dev.txt
-      - run: pytest -q
+      - name: SQLite tests
+        run: pytest -q
+      - name: Create restricted app role
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d shapater -f ../docker/initdb/01-app-role.sql
+      - name: Migrate + test on PostgreSQL with RLS
+        env:
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shapater
+          DATABASE_URL: postgresql+asyncpg://shapater_app:shapater_app_pw@localhost:5432/shapater
+          TEST_ADMIN_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shapater
+        run: |
+          alembic upgrade head
+          pytest -q

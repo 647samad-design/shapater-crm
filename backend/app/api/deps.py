@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import get_db, set_tenant
 from app.core.security import decode_token
 from app.models import User
 
@@ -23,6 +23,7 @@ async def get_current_user(token: str = Depends(oauth2), db: AsyncSession = Depe
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user or not user.is_active:
         raise err
+    await set_tenant(db, user.agency_id)  # activates RLS for the rest of this request
     return user
 
 

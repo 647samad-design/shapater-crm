@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: shapater
     ports: ["5432:5432"]
-    volumes: [pgdata:/var/lib/postgresql/data]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -14,8 +16,11 @@ services:
   api:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/shapater
+      # API runs as the restricted role (Row-Level Security applies); migrations run as owner.
+      DATABASE_URL: postgresql+asyncpg://shapater_app:shapater_app_pw@db:5432/shapater
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/shapater
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports: ["8000:8000"]
     depends_on:
       db: {condition: service_healthy}

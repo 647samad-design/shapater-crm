@@ -11,9 +11,9 @@ from app.core.db import Base, engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Dev convenience. Production uses Alembic migrations (next step).
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.auto_create_tables:  # dev convenience only; production uses `alembic upgrade head`
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
 

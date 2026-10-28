@@ -16,7 +16,9 @@ cd backend && pip install -r requirements-dev.txt && pytest -q
 - Leads pipeline + activities/follow-up reminders, dashboard summary
 - WhatsApp share message + `wa.me` link per match
 - Multi-currency (PKR/AED/SAR/USD…), marla/kanal/sqft/sqm conversion, RERA/Trakheesi permit field
-- Soft delete, audit log, tenant isolation tests
+- Soft delete, audit log
+- **PostgreSQL Row-Level Security** (DB-enforced tenant isolation, fail-closed) + Alembic migrations
+- CSV import (clients, properties) and WhatsApp message parser (`POST /api/v1/ai/parse-message`)
 
 ## Roadmap
 1. Alembic migrations + PostgreSQL Row-Level Security

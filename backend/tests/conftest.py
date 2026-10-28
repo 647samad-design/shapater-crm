@@ -1,6 +1,6 @@
 import os
 
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")  # set to a Postgres URL to test RLS
 os.environ["SECRET_KEY"] = "test-secret"
 
 import httpx  # noqa: E402
@@ -12,9 +12,18 @@ from app.main import app  # noqa: E402
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    if engine.dialect.name == "sqlite":
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+    else:  # Postgres: schema comes from Alembic; wipe data using the admin URL
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import create_async_engine
+        admin = create_async_engine(os.environ["TEST_ADMIN_DATABASE_URL"])
+        async with admin.begin() as conn:
+            await conn.execute(text("TRUNCATE audit_logs, activities, leads, matches, requirements, clients, "
+                                    "properties, users, agencies CASCADE"))
+        await admin.dispose()
     yield
     await engine.dispose()
     if os.path.exists("test.db"):

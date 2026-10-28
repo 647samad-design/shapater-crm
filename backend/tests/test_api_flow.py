@@ -60,3 +60,17 @@ async def test_auth_and_roles(client):
     assert (await client.delete(f"/api/v1/properties/{p.json()['id']}", headers=ah)).status_code == 403  # agents can't delete
     assert (await client.delete(f"/api/v1/properties/{p.json()['id']}", headers=h)).status_code == 204
     assert (await client.post("/api/v1/auth/login", json={"email": "agent@x.com", "password": "wrong"})).status_code == 401
+
+
+async def test_csv_import_and_parse_endpoint(client):
+    h = await register(client, "imp@x.com", "Import Co")
+    csv_clients = "Name,Mobile,Source\nAli,0300-1111111,whatsapp\nAli Dup,+92 300 1111111,whatsapp\n,0321,x\n"
+    r = await client.post("/api/v1/import/clients", headers=h, files={"file": ("c.csv", csv_clients, "text/csv")})
+    assert r.json()["created"] == 1 and r.json()["duplicates_skipped"] == 1 and len(r.json()["errors"]) == 1
+
+    csv_props = "Title,Demand,Beds,Area,City,Size,Unit\nHouse A,2.5,4,DHA,Lahore,10,marla\nHouse B,25000000,3,DHA,Lahore,5,marla\n"
+    r = await client.post("/api/v1/import/properties", headers=h, files={"file": ("p.csv", csv_props, "text/csv")})
+    assert r.json()["created"] == 2 and r.json()["errors"] == []
+
+    p = await client.post("/api/v1/ai/parse-message", headers=h, json={"text": "5 marla house DHA Phase 6 Lahore, 2.5 crore"})
+    assert p.json()["kind"] == "property" and p.json()["data"]["price"] == 25000000
