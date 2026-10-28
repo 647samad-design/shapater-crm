@@ -30,6 +30,31 @@ async def list_matches(user: User = Depends(get_current_user), db: AsyncSession 
     return (await db.execute(stmt)).scalars().all()
 
 
+@router.get("/detailed")
+async def detailed_matches(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db),
+                           status: str | None = None, min_score: int = 0, limit: int = Query(50, le=200),
+                           offset: int = 0):
+    """Matches joined with property + client summary (one call for the dashboard)."""
+    stmt = (select(Match, Property, Requirement, Client)
+            .join(Property, Property.id == Match.property_id)
+            .join(Requirement, Requirement.id == Match.requirement_id)
+            .join(Client, Client.id == Requirement.client_id)
+            .where(Match.agency_id == user.agency_id, Match.score >= min_score,
+                   Property.deleted_at.is_(None), Client.deleted_at.is_(None)))
+    if status:
+        stmt = stmt.where(Match.status == status)
+    rows = (await db.execute(stmt.order_by(Match.score.desc(), Match.created_at.desc())
+                             .limit(limit).offset(offset))).all()
+    return [{
+        "id": m.id, "score": m.score, "breakdown": m.breakdown, "status": m.status, "created_at": m.created_at,
+        "property": {"id": p.id, "title": p.title, "price": float(p.price), "currency": p.currency,
+                     "city": p.city, "area_name": p.area_name, "bedrooms": p.bedrooms, "purpose": p.purpose},
+        "client": {"id": c.id, "name": c.name, "phone": c.phone},
+        "requirement": {"id": r.id, "urgency": r.urgency, "budget_max": float(r.budget_max) if r.budget_max else None,
+                        "currency": r.currency, "preferred_areas": r.preferred_areas},
+    } for m, p, r, c in rows]
+
+
 @router.patch("/{match_id}", response_model=MatchOut)
 async def update_match(match_id: uuid.UUID, data: MatchStatusUpdate, user: User = Depends(get_current_user),
                        db: AsyncSession = Depends(get_db)):

@@ -74,3 +74,14 @@ async def test_csv_import_and_parse_endpoint(client):
 
     p = await client.post("/api/v1/ai/parse-message", headers=h, json={"text": "5 marla house DHA Phase 6 Lahore, 2.5 crore"})
     assert p.json()["kind"] == "property" and p.json()["data"]["price"] == 25000000
+
+
+async def test_detailed_matches_join(client):
+    h = await register(client, "det@x.com", "Detail Co")
+    c = await client.post("/api/v1/clients", headers=h, json={"name": "Sara", "phone": "0311-2223333"})
+    await client.post("/api/v1/properties", headers=h, json=PROP)
+    await client.post("/api/v1/requirements", headers=h, json={
+        "client_id": c.json()["id"], "purpose": "sale", "currency": "PKR", "budget_max": 30000000,
+        "city": "Lahore", "preferred_areas": ["DHA Phase 6"]})
+    d = (await client.get("/api/v1/matches/detailed", headers=h)).json()
+    assert len(d) == 1 and d[0]["client"]["name"] == "Sara" and d[0]["property"]["area_name"] == "DHA Phase 6"

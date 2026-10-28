@@ -4,8 +4,12 @@ Multi-tenant, white-label Real Estate CRM for Pakistan + Gulf agencies, with **a
 
 ## Run
 ```bash
-docker compose up --build        # API on http://localhost:8000/docs
-# or locally
+docker compose up --build   # API http://localhost:8000/docs  |  Dashboard http://localhost:3000
+```
+Sign up on the login page (creates your agency), then: **Paste a message** → **Matches**.
+
+### Develop
+```bash
 cd backend && pip install -r requirements-dev.txt && pytest -q
 ```
 
@@ -20,9 +24,11 @@ cd backend && pip install -r requirements-dev.txt && pytest -q
 - **PostgreSQL Row-Level Security** (DB-enforced tenant isolation, fail-closed) + Alembic migrations
 - CSV import (clients, properties) and WhatsApp message parser (`POST /api/v1/ai/parse-message`)
 
+- **Dashboard (Next.js)**: overview, matches with the Fit Gauge, properties, clients + requirements, drag-and-drop pipeline, paste-a-message, CSV import
+
 ## Roadmap
-1. Alembic migrations + PostgreSQL Row-Level Security
-2. Next.js dashboard (Kanban, matches, analytics) + Urdu/Arabic i18n
-3. CSV import, Celery/Redis background jobs, WhatsApp Cloud API
-4. AI WhatsApp-message parser, brochure PDF, public listing pages
-5. Billing (Stripe), white-label branding/domains, super-admin
+1. Urdu/Arabic i18n (RTL), live FX rates
+2. Celery/Redis background jobs, WhatsApp Cloud API (send + inbound)
+3. LLM-based message parser, brochure PDF, public listing pages
+4. Billing (Stripe), white-label branding/domains, super-admin
+5. Per-agent permissions (agents see only their leads), 2FA, rate limiting
