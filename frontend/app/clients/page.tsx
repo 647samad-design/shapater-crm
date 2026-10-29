@@ -5,7 +5,7 @@ import Shell from "@/components/Shell";
 import { Button, Empty, ErrorNote, Field, Input, Modal, Select, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
-import { Client } from "@/lib/types";
+import { Client, TeamUser } from "@/lib/types";
 
 const SOURCES = ["whatsapp", "walk_in", "referral", "zameen", "bayut", "property_finder", "facebook", "website", "other"];
 const blankReq = { purpose: "sale", types: "", budget_min: "", budget_max: "", currency: "PKR", city: "", areas: "", beds_min: "", beds_max: "", features: "" };
@@ -14,6 +14,9 @@ const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 export default function Clients() {
   const [q, setQ] = useState("");
   const { data, error, reload } = useApi<Client[]>(`/clients?limit=100${q ? `&q=${encodeURIComponent(q)}` : ""}`);
+  const me = useApi<{ role: string }>("/me");
+  const canAssign = !!me.data && me.data.role !== "agent";
+  const team = useApi<TeamUser[]>(canAssign ? "/users" : null);
   const [addOpen, setAddOpen] = useState(false);
   const [c, setC] = useState({ name: "", phone: "", source: "whatsapp", notes: "" });
   const [err, setErr] = useState<string | null>(null);
@@ -25,6 +28,11 @@ export default function Clients() {
     e.preventDefault(); setErr(null);
     try { await api("/clients", { body: c }); setAddOpen(false); setC({ name: "", phone: "", source: "whatsapp", notes: "" }); reload(); }
     catch (e) { setErr(e instanceof ApiError && e.status === 409 ? "This phone number is already in your clients. Search for it instead of adding it again." : (e as Error).message); }
+  }
+
+  async function assign(cl: Client, userId: string) {
+    try { await api(`/clients/${cl.id}`, { method: "PATCH", body: { assigned_to: userId || null } }); reload(); }
+    catch (e) { setErr((e as Error).message); }
   }
 
   async function addReq(e: React.FormEvent) {
@@ -45,13 +53,21 @@ export default function Clients() {
   return (
     <Shell title="Clients" actions={<Button onClick={() => setAddOpen(true)}>Add client</Button>}>
       <Input aria-label="Search clients" placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 max-w-xs" />
-      <ErrorNote msg={error} />
+      <ErrorNote msg={error || err} />
       {data?.length === 0 ? <Empty title="No clients yet" hint="Add a client, then record what they are looking for. Properties that fit show up as matches." action={<Button onClick={() => setAddOpen(true)}>Add client</Button>} /> : (
         <ul className="divide-y divide-line rounded-lg border border-line bg-white">
           {data?.map((cl) => (
             <li key={cl.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <div><p className="font-medium">{cl.name}</p><p className="text-sm text-muted">{cl.phone}{cl.source ? ` · ${cl.source.replace("_", " ")}` : ""}</p></div>
-              <Button variant="ghost" onClick={() => setReqFor(cl)}>Add requirement</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {canAssign && team.data && (
+                  <Select aria-label={`Assigned agent for ${cl.name}`} value={cl.assigned_to ?? ""} onChange={(e) => assign(cl, e.target.value)} className="!w-44 !py-1.5">
+                    <option value="">Unassigned</option>
+                    {team.data.filter((u) => u.is_active).map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                  </Select>
+                )}
+                <Button variant="ghost" onClick={() => setReqFor(cl)}>Add requirement</Button>
+              </div>
             </li>
           ))}
         </ul>

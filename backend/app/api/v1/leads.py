@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_owned
+from app.api.deps import get_client_for, get_current_user, get_lead_for, get_owned, is_agent
 from app.core.db import get_db
 from app.models import Activity, Client, Lead, User
 from app.schemas.crm import ActivityCreate, ActivityOut, LeadCreate, LeadOut, LeadUpdate
@@ -16,9 +16,9 @@ router = APIRouter(tags=["leads"])
 
 @router.post("/leads", response_model=LeadOut, status_code=201)
 async def create_lead(data: LeadCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await get_owned(db, Client, data.client_id, user)
+    await get_client_for(db, data.client_id, user)
     fields = data.model_dump()
-    fields["assigned_to"] = data.assigned_to or user.id
+    fields["assigned_to"] = user.id if is_agent(user) else (data.assigned_to or user.id)
     lead = Lead(**fields, agency_id=user.agency_id)
     db.add(lead)
     await db.flush()
@@ -32,6 +32,8 @@ async def list_leads(user: User = Depends(get_current_user), db: AsyncSession = 
                      stage: str | None = None, assigned_to: uuid.UUID | None = None, source: str | None = None,
                      limit: int = Query(100, le=500), offset: int = 0):
     stmt = select(Lead).where(Lead.agency_id == user.agency_id)
+    if is_agent(user):
+        stmt = stmt.where(Lead.assigned_to == user.id)
     if stage:
         stmt = stmt.where(Lead.stage == stage)
     if assigned_to:
@@ -45,8 +47,10 @@ async def list_leads(user: User = Depends(get_current_user), db: AsyncSession = 
 @router.patch("/leads/{lead_id}", response_model=LeadOut)
 async def update_lead(lead_id: uuid.UUID, data: LeadUpdate, user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db)):
-    lead = await get_owned(db, Lead, lead_id, user)
+    lead = await get_lead_for(db, lead_id, user)
     changes = data.model_dump(exclude_unset=True)
+    if is_agent(user) and "assigned_to" in changes:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only owners and managers can reassign leads")
     old_stage = lead.stage
     for k, v in changes.items():
         setattr(lead, k, v)
@@ -58,7 +62,7 @@ async def update_lead(lead_id: uuid.UUID, data: LeadUpdate, user: User = Depends
 @router.post("/leads/{lead_id}/activities", response_model=ActivityOut, status_code=201)
 async def add_activity(lead_id: uuid.UUID, data: ActivityCreate, user: User = Depends(get_current_user),
                        db: AsyncSession = Depends(get_db)):
-    lead = await get_owned(db, Lead, lead_id, user)
+    lead = await get_lead_for(db, lead_id, user)
     act = Activity(**data.model_dump(), agency_id=user.agency_id, lead_id=lead.id,
                    client_id=lead.client_id, user_id=user.id)
     db.add(act)
@@ -69,7 +73,7 @@ async def add_activity(lead_id: uuid.UUID, data: ActivityCreate, user: User = De
 @router.get("/leads/{lead_id}/activities", response_model=list[ActivityOut])
 async def lead_activities(lead_id: uuid.UUID, user: User = Depends(get_current_user),
                           db: AsyncSession = Depends(get_db)):
-    await get_owned(db, Lead, lead_id, user)
+    await get_lead_for(db, lead_id, user)
     rows = await db.execute(select(Activity).where(Activity.agency_id == user.agency_id, Activity.lead_id == lead_id)
                             .order_by(Activity.created_at.desc()))
     return rows.scalars().all()

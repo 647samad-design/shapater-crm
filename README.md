@@ -24,6 +24,8 @@ cd backend && pip install -r requirements-dev.txt && pytest -q
 - **PostgreSQL Row-Level Security** (DB-enforced tenant isolation, fail-closed) + Alembic migrations
 - CSV import (clients, properties) and WhatsApp message parser (`POST /api/v1/ai/parse-message`)
 
+- **Roles & permissions**: owner / manager see the whole agency; **agents see only clients, leads and matches assigned to them**. Team page to add members and assign clients
+- **Login brute-force protection** (5 failed attempts / 15 min, `Retry-After`)
 - **Integrations & keys** (owner-only): add/edit/delete/copy Stripe, WhatsApp, AI keys. Encrypted at rest (Fernet, rotation-ready), masked in lists, reveal/copy audited, RLS-isolated per agency
 - **Dashboard (Next.js)**: overview, matches with the Fit Gauge, properties, clients + requirements, drag-and-drop pipeline, paste-a-message, CSV import
 
@@ -36,4 +38,4 @@ cd backend && pip install -r requirements-dev.txt && pytest -q
 2. Celery/Redis background jobs, WhatsApp Cloud API (send + inbound)
 3. LLM-based message parser, brochure PDF, public listing pages
 4. Billing (Stripe), white-label branding/domains, super-admin
-5. Per-agent permissions (agents see only their leads), 2FA, rate limiting
+5. 2FA, change-password / password reset, Redis-backed rate limiting

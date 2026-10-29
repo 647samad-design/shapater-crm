@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
     access_token_minutes: int = 60 * 12
     match_threshold: int = 70
+    login_max_failures: int = 5
+    login_window_seconds: int = 900
     cors_origins: list[str] = ["http://localhost:3000"]
     default_phone_country_code: str = "92"
 

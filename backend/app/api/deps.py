@@ -35,6 +35,39 @@ def require_roles(*roles: str):
     return checker
 
 
+def is_agent(user: User) -> bool:
+    return user.role == "agent"
+
+
+def visible_client_ids(user: User):
+    """Sub-select of client ids an agent may see (owners/managers see the whole agency)."""
+    from app.models import Client
+    return select(Client.id).where(Client.agency_id == user.agency_id, Client.assigned_to == user.id)
+
+
+async def get_client_for(db: AsyncSession, client_id: uuid.UUID, user: User):
+    from app.models import Client
+    c = await get_owned(db, Client, client_id, user)
+    if is_agent(user) and c.assigned_to != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+    return c
+
+
+async def get_requirement_for(db: AsyncSession, req_id: uuid.UUID, user: User):
+    from app.models import Requirement
+    r = await get_owned(db, Requirement, req_id, user)
+    await get_client_for(db, r.client_id, user)
+    return r
+
+
+async def get_lead_for(db: AsyncSession, lead_id: uuid.UUID, user: User):
+    from app.models import Lead
+    lead = await get_owned(db, Lead, lead_id, user)
+    if is_agent(user) and lead.assigned_to != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Lead not found")
+    return lead
+
+
 async def get_owned(db: AsyncSession, model, obj_id: uuid.UUID, user: User):
     """Fetch an object scoped to the caller's agency (tenant isolation) or 404."""
     stmt = select(model).where(model.id == obj_id, model.agency_id == user.agency_id)

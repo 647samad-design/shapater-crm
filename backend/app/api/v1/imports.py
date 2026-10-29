@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, is_agent
 from app.core.db import get_db
 from app.models import Agency, Client, Property, User
 from app.schemas.crm import PropertyCreate
@@ -65,7 +65,7 @@ async def import_clients(file: UploadFile, user: User = Depends(get_current_user
             duplicates += 1
             continue
         seen.add(phone_n)
-        db.add(Client(agency_id=user.agency_id, phone_normalized=phone_n, **d))
+        db.add(Client(agency_id=user.agency_id, phone_normalized=phone_n, assigned_to=user.id, **d))
         created += 1
     await audit(db, user, "import", "client", None, {"created": created, "duplicates": duplicates})
     await db.commit()

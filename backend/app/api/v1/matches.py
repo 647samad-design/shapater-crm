@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_owned
+from app.api.deps import get_current_user, get_owned, get_requirement_for, is_agent, visible_client_ids
 from app.core.db import get_db
 from app.models import Client, Match, Property, Requirement, User
 from app.schemas.crm import MatchOut, MatchStatusUpdate
@@ -20,6 +20,8 @@ async def list_matches(user: User = Depends(get_current_user), db: AsyncSession 
                        status: str | None = None, min_score: int = 0,
                        limit: int = Query(50, le=200), offset: int = 0):
     stmt = select(Match).where(Match.agency_id == user.agency_id, Match.score >= min_score)
+    if is_agent(user):
+        stmt = stmt.where(Match.requirement_id.in_(select(Requirement.id).where(Requirement.client_id.in_(visible_client_ids(user)))))
     if requirement_id:
         stmt = stmt.where(Match.requirement_id == requirement_id)
     if property_id:
@@ -41,6 +43,8 @@ async def detailed_matches(user: User = Depends(get_current_user), db: AsyncSess
             .join(Client, Client.id == Requirement.client_id)
             .where(Match.agency_id == user.agency_id, Match.score >= min_score,
                    Property.deleted_at.is_(None), Client.deleted_at.is_(None)))
+    if is_agent(user):
+        stmt = stmt.where(Client.assigned_to == user.id)
     if status:
         stmt = stmt.where(Match.status == status)
     rows = (await db.execute(stmt.order_by(Match.score.desc(), Match.created_at.desc())
@@ -59,6 +63,7 @@ async def detailed_matches(user: User = Depends(get_current_user), db: AsyncSess
 async def update_match(match_id: uuid.UUID, data: MatchStatusUpdate, user: User = Depends(get_current_user),
                        db: AsyncSession = Depends(get_db)):
     match = await get_owned(db, Match, match_id, user)
+    await get_requirement_for(db, match.requirement_id, user)
     match.status = data.status
     await audit(db, user, "update", "match", match.id, {"status": data.status})
     await db.commit()
@@ -71,7 +76,7 @@ async def whatsapp_share(match_id: uuid.UUID, user: User = Depends(get_current_u
     """Ready-made WhatsApp message + wa.me click-to-chat link for this match."""
     match = await get_owned(db, Match, match_id, user)
     prop = await get_owned(db, Property, match.property_id, user)
-    req = await get_owned(db, Requirement, match.requirement_id, user)
+    req = await get_requirement_for(db, match.requirement_id, user)
     client = await get_owned(db, Client, req.client_id, user)
     lines = [f"Assalam o Alaikum {client.name},", "", f"🏠 {prop.title}"]
     place = ", ".join(x for x in (prop.area_name, prop.city) if x)
