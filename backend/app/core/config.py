@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,16 @@ class Settings(BaseSettings):
     login_window_seconds: int = 900
     cors_origins: list[str] = ["http://localhost:3000"]
     default_phone_country_code: str = "92"
+
+    @field_validator("database_url", "migration_database_url", mode="before")
+    @classmethod
+    def _asyncpg_scheme(cls, v):
+        """Hosts (Render, Railway, Neon) give postgres:// or postgresql://; SQLAlchemy async needs +asyncpg."""
+        if isinstance(v, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if v.startswith(prefix):
+                    return "postgresql+asyncpg://" + v[len(prefix):]
+        return v
 
 
 settings = Settings()
