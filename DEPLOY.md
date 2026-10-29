@@ -11,7 +11,7 @@ Dashboard on **Vercel**, API + database on **Render**. Total cost: $0 for a test
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
-Keep the output: it is your `ENCRYPTION_KEYS`. If you lose it, saved API keys cannot be read again.
+Keep the output: it is your `ENCRYPTION_KEYS`. (No Python? Any long random string also works, e.g. Render's "Generate" button.) If you lose it, saved API keys cannot be read again.
 
 ## 2. API + database on Render
 1. render.com → **New → Blueprint** → connect the `shapater-crm` GitHub repo (it finds `render.yaml`).

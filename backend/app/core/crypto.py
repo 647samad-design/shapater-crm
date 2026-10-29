@@ -11,11 +11,20 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from app.core.config import settings
 
 
+def _fernet(key: str) -> Fernet:
+    """Accept a proper Fernet key, or any long random secret (e.g. Render's Generate button):
+    the latter is stretched with SHA-256 into a valid key."""
+    try:
+        return Fernet(key)
+    except ValueError:
+        return Fernet(base64.urlsafe_b64encode(hashlib.sha256(key.encode()).digest()))
+
+
 def _cipher() -> MultiFernet:
     keys = [k.strip() for k in (settings.encryption_keys or "").split(",") if k.strip()]
     if not keys:  # dev fallback derived from SECRET_KEY. Set ENCRYPTION_KEYS in production.
         keys = [base64.urlsafe_b64encode(hashlib.sha256(f"shapater-dev:{settings.secret_key}".encode()).digest()).decode()]
-    return MultiFernet([Fernet(k) for k in keys])
+    return MultiFernet([_fernet(k) for k in keys])
 
 
 def encrypt(plain: str) -> str:

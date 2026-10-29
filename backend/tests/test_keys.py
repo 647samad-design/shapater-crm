@@ -88,3 +88,14 @@ async def test_only_owner_and_tenant_isolation(client):
     assert (await client.get(B, headers=other)).json() == []
     assert (await client.post(f"{B}/{kid}/reveal", headers=other)).status_code == 404
     assert (await client.delete(f"{B}/{kid}", headers=other)).status_code == 404
+
+
+def test_any_random_string_works_as_encryption_key():
+    old = settings.encryption_keys
+    try:
+        settings.encryption_keys = "kJ8f2Qx9LmN3pR7sT1vW5yZ0aB4cD6eG8hI2jK4lM6n="  # not necessarily a Fernet key
+        assert crypto.decrypt(crypto.encrypt("abc12345")) == "abc12345"
+        settings.encryption_keys = "plain-long-random-passphrase-from-render-generate"
+        assert crypto.decrypt(crypto.encrypt("abc12345")) == "abc12345"
+    finally:
+        settings.encryption_keys = old
