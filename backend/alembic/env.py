@@ -26,4 +26,10 @@ async def run_async():
     await engine.dispose()
 
 
-asyncio.run(run_async())
+if context.is_offline_mode():
+    # `alembic upgrade head --sql` prints the SQL instead of running it (paste into Neon's SQL editor).
+    context.configure(url=URL, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"})
+    with context.begin_transaction():
+        context.run_migrations()
+else:
+    asyncio.run(run_async())

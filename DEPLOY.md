@@ -34,30 +34,34 @@ Paid always-on API (about $7/month), paid Postgres with backups, your own domain
 
 ---
 
-# No credit card? Use Neon + Hugging Face + Vercel (all free, no card)
+# No credit card? Use Neon + Vercel (both free, no card)
+
+Render needs a card for verification and Hugging Face Docker Spaces are now paid, so for a card-free test use:
 
 | Part | Where |
 |---|---|
 | Database | **Neon** (free Postgres) |
-| API | **Hugging Face Spaces** (free Docker Space) |
-| Dashboard | **Vercel** |
+| API | **Vercel** (project 1, Root Directory `backend`) |
+| Dashboard | **Vercel** (project 2, Root Directory `frontend`) |
 
-Free-tier notes: a Hugging Face Space sleeps after about 48 hours without traffic (first request then takes ~30 s); its disk is wiped on restart, so data must live in Neon (it does). Neon's free plan has storage and compute-hour limits. Test data only.
+Notes: the API runs as a serverless function, so the first request after idle can take a few seconds (Vercel cold start + Neon waking up). Test data only. Verify current free-plan limits on both sites.
 
 ## 1. Database on Neon
-1. neon.com → sign up with GitHub → **Create project** (name `shapater`, Postgres 16, region Singapore or closest).
-2. Click **Connect**. **Turn OFF "Connection pooling"** (the pooled URL breaks this app), copy the connection string (starts with `postgresql://...`). This is your `DATABASE_URL`.
+1. neon.com → create project `shapater` → **Connect** → turn **OFF "Connection pooling"** → copy the connection string. This is `DATABASE_URL`.
+2. Open **SQL Editor** in Neon, paste the full contents of [`deploy/schema.sql`](deploy/schema.sql), and click **Run**. This creates all tables (Vercel cannot run migrations).
 
-## 2. API on Hugging Face
-1. huggingface.co → sign up (no card) → **New Space** → name `shapater-api`, SDK **Docker → Blank**, hardware **CPU basic (free)**, visibility **Public**.
-2. In the Space → **Files → Add file → Upload files**: upload the two files from `deploy/huggingface/` in this repo (`Dockerfile`, `README.md`). Commit.
-3. Space → **Settings → Variables and secrets → New secret**, add four secrets:
-   - `DATABASE_URL` = the Neon string
-   - `SECRET_KEY` = any long random string
+## 2. API on Vercel (project 1)
+1. vercel.com → **Add New → Project** → import this repo → click **Import single project** on the **backend** line.
+2. Check: **Root Directory = `backend`**, Framework = FastAPI/Python. (`backend/index.py` is the entrypoint Vercel looks for.)
+3. Environment variables:
+   - `DATABASE_URL` = Neon string
+   - `SECRET_KEY` = a long random string
    - `ENCRYPTION_KEYS` = another long random string (save it)
-   - `CORS_ORIGINS` = `["https://YOUR-APP.vercel.app"]`
-4. Wait for **Building → Running**. Your API URL is `https://YOUR-USERNAME-shapater-api.hf.space`. Open `/health` on it: `{"status":"ok"}`.
-5. To deploy new code later: Settings → **Factory rebuild**.
+   - `CORS_ORIGINS` = `["https://YOUR-DASHBOARD.vercel.app"]` (update after step 3)
+4. Deploy. Open `https://YOUR-API.vercel.app/health` → `{"status":"ok"}`.
 
-## 3. Dashboard on Vercel
-Same as before: import the repo as a single project with Root Directory `frontend`, and set `NEXT_PUBLIC_API_URL` to the `.hf.space` URL. Then update `CORS_ORIGINS` on Hugging Face with the real Vercel URL (Space restarts automatically).
+## 3. Dashboard on Vercel (project 2)
+Import the same repo again → **Import single project** on the **frontend** line → Root Directory `frontend` → env `NEXT_PUBLIC_API_URL` = the API URL from step 2 → Deploy. Then put the dashboard URL into the API project's `CORS_ORIGINS` and **Redeploy** the API.
+
+## Changing the database later
+Add a new Alembic migration, then regenerate SQL with `alembic upgrade head --sql` (or run only the new part) and run it in Neon's SQL Editor.
