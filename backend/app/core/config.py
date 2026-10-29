@@ -1,3 +1,5 @@
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,12 +24,24 @@ class Settings(BaseSettings):
 
     @field_validator("database_url", "migration_database_url", mode="before")
     @classmethod
-    def _asyncpg_scheme(cls, v):
-        """Hosts (Render, Railway, Neon) give postgres:// or postgresql://; SQLAlchemy async needs +asyncpg."""
-        if isinstance(v, str):
-            for prefix in ("postgres://", "postgresql://"):
-                if v.startswith(prefix):
-                    return "postgresql+asyncpg://" + v[len(prefix):]
+    def _normalise_db_url(cls, v):
+        """Hosts (Render, Neon, Supabase...) hand out postgres:// or postgresql:// URLs with libpq-style options.
+        SQLAlchemy's async driver needs +asyncpg, and asyncpg wants ssl=... instead of sslmode=... (and rejects
+        channel_binding), so translate them."""
+        if not isinstance(v, str):
+            return v
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                v = "postgresql+asyncpg://" + v[len(prefix):]
+                break
+        if v.startswith("postgresql+asyncpg://"):
+            parts = urlsplit(v)
+            q = dict(parse_qsl(parts.query, keep_blank_values=True))
+            sslmode = q.pop("sslmode", None)
+            q.pop("channel_binding", None)
+            if sslmode and sslmode != "disable" and "ssl" not in q:
+                q["ssl"] = "require"
+            v = urlunsplit(parts._replace(query=urlencode(q)))
         return v
 
 
